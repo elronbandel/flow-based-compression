@@ -39,7 +39,7 @@ def train(flow, trainloader, optimizer, epoch):
     print(f'    Train Mean Loss:{epoch_mean_loss}')
     print(f'    Train Mean MSE:{epoch_mean_mse}')
     print(f'    Train Mean Likelihood:{epoch_mean_likelihood}')
-    return epoch_mean_loss
+    return epoch_mean_loss, epoch_mean_mse, epoch_mean_likelihood
 
 
 
@@ -71,7 +71,7 @@ def test(flow, testloader, filename, epoch, sample_shape):
         print(f'    Test Mean Loss:{epoch_mean_loss}')
         print(f'    Test Mean MSE:{epoch_mean_mse}')
         print(f'    Test Mean Likelihood:{epoch_mean_likelihood}')
-        return epoch_mean_loss
+        return epoch_mean_loss, epoch_mean_mse, epoch_mean_likelihood
 
 
 def dequantize(x):
@@ -127,17 +127,43 @@ def main(args):
     optimizer = torch.optim.Adam(
         flow.parameters(), lr=args.lr)
 
-    train_ll, test_ll = [],[]
+    train_loss, test_loss = [], []
+    train_ll, test_ll = [], []
+    train_mse, test_mse = [], []
     for epoch in range(args.epochs):
         print(f'--Epoch {epoch}--')
-        train_ll.append(train(flow, trainloader, optimizer, epoch))
-        test_ll.append(test(flow, testloader, model_save_filename, epoch, sample_shape))
+        epoch_train_loss, epoch_train_mse, epoch_train_ll = train(flow, trainloader, optimizer, epoch)
+        train_loss.append(epoch_train_loss)
+        train_ll.append(epoch_train_ll)
+        train_mse.append(epoch_train_mse)
+        epoch_test_loss, epoch_test_mse, epoch_test_ll = test(flow, testloader, model_save_filename, epoch, sample_shape)
+        test_loss.append(epoch_test_loss)
+        test_ll.append(epoch_test_ll)
+        test_mse.append(epoch_test_mse)
     print(train_ll)
+    plt.figure()
+    plt.plot(train_loss, label='Train Loss')
+    plt.legend()
+    plt.plot(test_loss, label='Test Loss')
+    plt.legend()
+    plt.savefig(f'loss_plot_{model_save_filename}')
+    plt.close()
+
+    plt.figure()
     plt.plot(train_ll, label='Train Log Likelihood')
     plt.legend()
     plt.plot(test_ll, label='Test Log Likelihood')
     plt.legend()
-    plt.savefig(f'log_likelihood_plot_{args.coupling}_{args.dataset}')
+    plt.savefig(f'log_likelihood_plot_{model_save_filename}_')
+    plt.close()
+
+    plt.figure()
+    plt.plot(train_mse, label='Train MSE')
+    plt.legend()
+    plt.plot(test_mse, label='Test MSE')
+    plt.legend()
+    plt.savefig(f'mse_plot_{model_save_filename}')
+    plt.close()
 
 
 if __name__ == '__main__':
