@@ -9,7 +9,7 @@ import model
 import matplotlib.pyplot as plt
 
 
-def train(flow, trainloader, optimizer, epoch, stats_file):
+def train(flow, trainloader, filename, optimizer, epoch):
     flow.train()  # set to training mode
     losses = 0.0
     mses = 0.0
@@ -39,16 +39,24 @@ def train(flow, trainloader, optimizer, epoch, stats_file):
     print(f'    Train Mean Loss:{epoch_mean_loss}')
     print(f'    Train Mean MSE:{epoch_mean_mse}')
     print(f'    Train Mean Likelihood:{epoch_mean_likelihood}')
-    stats_lines = stats_file.readlines()
-    stats_lines[0] = f'    Train Mean Loss:{epoch_mean_loss}\n'
-    stats_lines[1] = f'    Train Mean MSE:{epoch_mean_mse}\n'
-    stats_lines[2] = f'    Train Mean Likelihood:{epoch_mean_likelihood}\n'
-    stats_lines.writelines(stats_lines)
+
+    with open(f'stats_{filename}.txt', 'r') as stats_file:
+        stats_lines = stats_file.readlines()
+    if epoch > 0:
+        stats_lines[0] = f'    Train Mean Loss:{epoch_mean_loss}\n'
+        stats_lines[1] = f'    Train Mean MSE:{epoch_mean_mse}\n'
+        stats_lines[2] = f'    Train Mean Likelihood:{epoch_mean_likelihood}\n'
+    else:
+        stats_lines.append(f'Train Mean Loss:{epoch_mean_loss}\n')
+        stats_lines.append(f'Train Mean MSE:{epoch_mean_mse}\n')
+        stats_lines.append(f'Train Mean Likelihood:{epoch_mean_likelihood}\n')
+    with open(f'stats_{filename}.txt', 'w') as stats_file:
+        stats_file.writelines(stats_lines)
 
     return epoch_mean_loss, epoch_mean_mse, epoch_mean_likelihood
 
 
-def test(flow, testloader, filename, epoch, sample_shape, stats_file):
+def test(flow, testloader, filename, epoch, sample_shape):
     flow.eval()  # set to inference mode
     with torch.no_grad():
         samples = flow.sample(64).cpu()
@@ -75,11 +83,18 @@ def test(flow, testloader, filename, epoch, sample_shape, stats_file):
         print(f'    Test Mean Loss:{epoch_mean_loss}')
         print(f'    Test Mean MSE:{epoch_mean_mse}')
         print(f'    Test Mean Likelihood:{epoch_mean_likelihood}')
-        stats_lines = stats_file.readlines()
-        stats_lines[3] = f'    Test Mean Loss:{epoch_mean_loss}\n'
-        stats_lines[4] = f'    Test Mean MSE:{epoch_mean_mse}\n'
-        stats_lines[5] = f'    Test Mean Likelihood:{epoch_mean_likelihood}\n'
-        stats_lines.writelines(stats_lines)
+        with open(f'stats_{filename}.txt', 'r') as stats_file:
+            stats_lines = stats_file.readlines()
+        if epoch > 0:
+            stats_lines[3] = f'    Test Mean Loss:{epoch_mean_loss}\n'
+            stats_lines[4] = f'    Test Mean MSE:{epoch_mean_mse}\n'
+            stats_lines[5] = f'    Test Mean Likelihood:{epoch_mean_likelihood}\n'
+        else:
+            stats_lines.append(f'Test Mean Loss:{epoch_mean_loss}\n')
+            stats_lines.append(f'Test Mean MSE:{epoch_mean_mse}\n')
+            stats_lines.append(f'Test Mean Likelihood:{epoch_mean_likelihood}\n')
+        with open(f'stats_{filename}.txt', 'w') as stats_file:
+            stats_file.writelines(stats_lines)
 
         return epoch_mean_loss, epoch_mean_mse, epoch_mean_likelihood
 
@@ -125,6 +140,7 @@ def main(args):
              + 'hidden%d_' % args.hidden \
              + 'compress%d_' % args.compression_factor \
              + 'bottleneck%s_' % args.bottleneck_type \
+             + 'layers%d_' % args.n_layers \
              + '.pt'
 
     flow = model.NICE(
@@ -135,26 +151,24 @@ def main(args):
                 hidden=args.hidden,
                 compress=args.compression_factor,
                 bottleneck=args.bottleneck_type,
-                device=device).to(device)
+                device=device,
+                n_layers=args.n_layers).to(device)
     optimizer = torch.optim.Adam(
         flow.parameters(), lr=args.lr)
 
     train_loss, test_loss = [], []
     train_ll, test_ll = [], []
     train_mse, test_mse = [], []
-    stats_file = open(f'stats_{model_save_filename}.txt', 'r+')
-    stats_file.write('\n\n\n\n\n\n')
     for epoch in range(args.epochs):
         print(f'--Epoch {epoch}--')
-        epoch_train_loss, epoch_train_mse, epoch_train_ll = train(flow, trainloader, optimizer, epoch, stats_file)
+        epoch_train_loss, epoch_train_mse, epoch_train_ll = train(flow, trainloader, model_save_filename, optimizer, epoch)
         train_loss.append(epoch_train_loss)
         train_ll.append(epoch_train_ll)
         train_mse.append(epoch_train_mse)
-        epoch_test_loss, epoch_test_mse, epoch_test_ll = test(flow, testloader, model_save_filename, epoch, sample_shape, stats_file)
+        epoch_test_loss, epoch_test_mse, epoch_test_ll = test(flow, testloader, model_save_filename, epoch, sample_shape)
         test_loss.append(epoch_test_loss)
         test_ll.append(epoch_test_ll)
         test_mse.append(epoch_test_mse)
-    stats_file.close()
     print(train_ll)
     plt.figure()
     plt.plot(train_loss, label='Train Loss')
@@ -211,6 +225,10 @@ if __name__ == '__main__':
                         help='.',
                         type=int,
                         default=1000)
+    parser.add_argument('--n_layers',
+                        help='.',
+                        type=int,
+                        default=4)
     parser.add_argument('--hidden',
                         help='.',
                         type=int,

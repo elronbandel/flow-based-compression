@@ -148,7 +148,7 @@ logistic = TransformedDistribution(Uniform(0, 1), [SigmoidTransform().inv, Affin
 """
 class NICE(nn.Module):
     def __init__(self, prior, coupling,
-        in_out_dim, mid_dim, hidden, bottleneck, compress, device):
+        in_out_dim, mid_dim, hidden, bottleneck, compress, device, n_layers):
         """Initialize a NICE.
 
         Args:
@@ -170,7 +170,7 @@ class NICE(nn.Module):
 
         self.in_out_dim = in_out_dim
         self.coupling = coupling
-        self.n_layers = 4
+        self.n_layers = n_layers
         layer = AdditiveCoupling if coupling == 'additive' else AffineCoupling
         self.coupling_layers = nn.ModuleList(
             [layer(in_out_dim, mid_dim, hidden, i % 2) for i in range(self.n_layers)]
