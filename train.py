@@ -176,7 +176,7 @@ def main(args):
     plt.legend()
     plt.plot(test_loss, label='Test Loss')
     plt.legend()
-    plt.savefig(f'loss_plot_{model_save_filename}')
+    plt.savefig(f'loss_plot_{model_save_filename}.png')
     plt.close()
 
     plt.figure()
@@ -184,7 +184,7 @@ def main(args):
     plt.legend()
     plt.plot(test_ll, label='Test Log Likelihood')
     plt.legend()
-    plt.savefig(f'log_likelihood_plot_{model_save_filename}')
+    plt.savefig(f'log_likelihood_plot_{model_save_filename}.png')
     plt.close()
 
     plt.figure()
@@ -192,7 +192,7 @@ def main(args):
     plt.legend()
     plt.plot(test_mse, label='Test MSE')
     plt.legend()
-    plt.savefig(f'mse_plot_{model_save_filename}')
+    plt.savefig(f'mse_plot_{model_save_filename}.png')
     plt.close()
 
 
