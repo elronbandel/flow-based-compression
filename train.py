@@ -40,13 +40,14 @@ def train(flow, trainloader, filename, optimizer, epoch):
     print(f'    Train Mean MSE:{epoch_mean_mse}')
     print(f'    Train Mean Likelihood:{epoch_mean_likelihood}')
 
-    with open(f'stats_{filename}.txt', 'r') as stats_file:
-        stats_lines = stats_file.readlines()
     if epoch > 0:
+        with open(f'stats_{filename}.txt', 'r') as stats_file:
+            stats_lines = stats_file.readlines()
         stats_lines[0] = f'    Train Mean Loss:{epoch_mean_loss}\n'
         stats_lines[1] = f'    Train Mean MSE:{epoch_mean_mse}\n'
         stats_lines[2] = f'    Train Mean Likelihood:{epoch_mean_likelihood}\n'
     else:
+        stats_lines = []
         stats_lines.append(f'Train Mean Loss:{epoch_mean_loss}\n')
         stats_lines.append(f'Train Mean MSE:{epoch_mean_mse}\n')
         stats_lines.append(f'Train Mean Likelihood:{epoch_mean_likelihood}\n')
