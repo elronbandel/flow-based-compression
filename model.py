@@ -148,7 +148,7 @@ logistic = TransformedDistribution(Uniform(0, 1), [SigmoidTransform().inv, Affin
 """
 class NICE(nn.Module):
     def __init__(self, prior, coupling,
-        in_out_dim, mid_dim, hidden, compress, device):
+        in_out_dim, mid_dim, hidden, bottleneck, compress, device):
         """Initialize a NICE.
 
         Args:
@@ -178,6 +178,7 @@ class NICE(nn.Module):
         self.scale = Scaling(in_out_dim).to(device)
         self.bottleneck_factor = compress
         self.bottleneck_loss = nn.MSELoss()
+        self.bottleneck = bottleneck
 
 
     def f_inverse(self, z):
@@ -222,21 +223,23 @@ class NICE(nn.Module):
             log-likelihood of input.
         """
         z, log_det_J = self.f(x)
-        # a, b = z[:, 0::2], z[:, 1::2]
-        # mse_loss = self.bottleneck_loss(a, b)
-        # z = b
+
         slices = [z[:, i::self.bottleneck_factor] for i in range(self.bottleneck_factor)]
         s = torch.stack(slices).permute(1, 0, 2)
-        z = slices[-1]
-        # calculate loss
-        # bottleneck_loss = 0.0
-        # for slice in slices[:-1]:
-        #     bottleneck_loss += self.bottleneck_loss(slice, slices[-1])
-        bottleneck_loss = torch.sum(torch.var(s, dim=1), dim=1)
+        if self.bottleneck == 'redundancy':
+            bottleneck_loss = torch.sum(torch.var(s, dim=1), dim=1)
+            log_ll = 0.0
+            for slice in slices:
+                log_ll += torch.sum(self.prior.log_prob(slice), dim=1)
+        if self.bottleneck == 'null':
+            winner = slices[-1]
+            loser = torch.ones_like(winner)
+            bottleneck_loss = 0.0
+            for slice in slices[:-1]:
+                bottleneck_loss += self.bottleneck_loss(slice, loser)
+            log_ll = torch.sum(self.prior.log_prob(winner), dim=1)
         log_det_J -= np.log(256)*self.in_out_dim #/ self.bottleneck_factor #log det for rescaling from [0.256] (after dequantization) to [0,1]
-        log_ll = 0.0
-        for slice in slices:
-            log_ll += torch.sum(self.prior.log_prob(slice), dim=1)
+
         #log_ll = torch.sum(self.prior.log_prob(z), dim=1)
         return log_ll + log_det_J, bottleneck_loss
 
@@ -251,8 +254,13 @@ class NICE(nn.Module):
         z = self.prior.sample((size, self.in_out_dim // self.bottleneck_factor)).to(self.device)
 
         z_tag = torch.zeros((size, self.in_out_dim)).to(self.device)
-        for i in range(self.bottleneck_factor):
-            z_tag[:, i::self.bottleneck_factor] = z
+        if self.bottleneck == 'redundancy':
+            for i in range(self.bottleneck_factor):
+                z_tag[:, i::self.bottleneck_factor] = z
+        if self.bottleneck == 'null':
+            for i in range(self.bottleneck_factor - 1):
+                z_tag[:, i::self.bottleneck_factor] = torch.ones_like(z)
+            z_tag[:, self.bottleneck_factor-1::self.bottleneck_factor] = z
         return self.f_inverse(z_tag)
 
     def forward(self, x):

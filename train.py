@@ -114,6 +114,7 @@ def main(args):
              + 'mid%d_' % args.mid_dim \
              + 'hidden%d_' % args.hidden \
              + 'compress%d_' % args.compression_factor \
+             + 'bottleneck%s_' % args.bottleneck_type \
              + '.pt'
 
     flow = model.NICE(
@@ -123,6 +124,7 @@ def main(args):
                 mid_dim=args.mid_dim,
                 hidden=args.hidden,
                 compress=args.compression_factor,
+                bottleneck=args.bottleneck_type,
                 device=device).to(device)
     optimizer = torch.optim.Adam(
         flow.parameters(), lr=args.lr)
@@ -208,6 +210,10 @@ if __name__ == '__main__':
                         help='the factor of compression by virtual bottleneck.',
                         type=int,
                         default=2)
+    parser.add_argument('--bottleneck_type',
+                        help='the virtual bottleneck method (redundancy/null) ',
+                        type=str,
+                        default='redundancy')
 
     args = parser.parse_args()
     main(args)
